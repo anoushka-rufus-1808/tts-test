@@ -76,6 +76,75 @@ class TTSResponse(BaseModel):
     translated_text: Optional[str] = None  # Translated text (if translation was done)
     translation_applied: bool = False  # Whether translation was applied
 
+# ============= LANGUAGE NORMALIZATION =============
+
+# Based on Google Translate supported languages
+LANGUAGE_NAME_TO_CODE = {
+    "afrikaans": "af",
+    "albanian": "sq",
+    "amharic": "am",
+    "arabic": "ar",
+    "armenian": "hy",
+    "assamese": "as",
+    "azerbaijani": "az",
+    "bengali": "bn",
+    "bulgarian": "bg",
+    "catalan": "ca",
+    "chinese (simplified)": "zh-CN",
+    "chinese (traditional)": "zh-TW",
+    "croatian": "hr",
+    "czech": "cs",
+    "danish": "da",
+    "dutch": "nl",
+    "english": "en",
+    "french": "fr",
+    "german": "de",
+    "greek": "el",
+    "gujarati": "gu",
+    "hebrew": "he",
+    "hindi": "hi",
+    "hungarian": "hu",
+    "indonesian": "id",
+    "italian": "it",
+    "japanese": "ja",
+    "korean": "ko",
+    "malay": "ms",
+    "marathi": "mr",
+    "nepali": "ne",
+    "norwegian": "no",
+    "persian": "fa",
+    "polish": "pl",
+    "portuguese": "pt",
+    "punjabi": "pa",
+    "romanian": "ro",
+    "russian": "ru",
+    "spanish": "es",
+    "swahili": "sw",
+    "swedish": "sv",
+    "tamil": "ta",
+    "telugu": "te",
+    "thai": "th",
+    "turkish": "tr",
+    "ukrainian": "uk",
+    "urdu": "ur",
+    "vietnamese": "vi",
+}
+def normalize_language(lang: Optional[str]) -> Optional[str]:
+    """
+    Accept either ISO code ('en') or full language name ('english')
+    and return ISO code.
+    """
+    if not lang:
+        return None
+
+    lang = lang.strip().lower()
+
+    # If it's a full language name
+    if lang in LANGUAGE_NAME_TO_CODE:
+        return LANGUAGE_NAME_TO_CODE[lang]
+
+    # Otherwise assume it's already an ISO code
+    return lang
 
 # ============= HELPER FUNCTIONS =============
 
@@ -248,29 +317,36 @@ def convert_text_to_speech(
         original_text = input_data.text
         final_text = original_text
         translation_applied = False
-        
+
+        # Normalize language inputs
+        target_language = normalize_language(input_data.language)
+        source_language = normalize_language(input_data.translate_from)
+
         # Apply translation if requested
-        if input_data.translate_from:
-            print(f"Translating from {input_data.translate_from} to {input_data.language}")
+        if source_language:
+            print(f"Translating from {source_language} to {target_language}")
             final_text = translate_text(
                 original_text,
-                input_data.translate_from,
-                input_data.language
+                source_language,
+                target_language
             )
             translation_applied = True
             print(f"Translation: '{original_text}' → '{final_text}'")
-        
+
         # Generate filename
         audio_filename = generate_audio_filename(final_text, input_data.filename)
         audio_path = os.path.join(OUTPUT_DIR, audio_filename)
-        
+
         # Convert text to speech
-        text_to_speech(final_text, audio_path, input_data.language)
-        
+        text_to_speech(final_text, audio_path, target_language)
+
         response_message = "Speech generated successfully"
         if translation_applied:
-            response_message = f"Text translated from {input_data.translate_from} to {input_data.language} and speech generated successfully"
-        
+            response_message = (
+                f"Text translated from {source_language} "
+                f"to {target_language} and speech generated successfully"
+            )
+
         return TTSResponse(
             success=True,
             message=response_message,
@@ -281,12 +357,11 @@ def convert_text_to_speech(
             translated_text=final_text if translation_applied else None,
             translation_applied=translation_applied
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating speech: {str(e)}")
-
 
 @app.post("/tts/file", response_model=TTSResponse)
 async def convert_file_to_speech(
@@ -313,6 +388,8 @@ async def convert_file_to_speech(
        file=document.pdf, translate_from="en", language="es"
     """
     try:
+        language = normalize_language(language)
+        translate_from = normalize_language(translate_from)
         # Save uploaded file temporarily
         temp_file_path = f"temp_{file.filename}"
         with open(temp_file_path, "wb") as f:
