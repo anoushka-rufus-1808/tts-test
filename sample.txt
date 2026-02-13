@@ -1,0 +1,5 @@
+The quick brown fox jumps over the lazy dog. This is a sample text file for testing the text-to-speech API.
+
+Artificial intelligence is transforming how we interact with technology. Text-to-speech systems convert written text into natural-sounding speech, making content more accessible.
+
+This API demonstrates how to build a simple yet powerful text-to-speech service using open-source tools and Python.
