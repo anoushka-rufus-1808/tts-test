@@ -1,6 +1,6 @@
 """
 Text-to-Speech API with Translation
-FIXED VERSION - Added Form(...) annotations for file upload
+FIXED VERSION - Removed authentication from the /audio/ endpoint to allow browser playback
 """
 
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Header, Form
@@ -272,9 +272,9 @@ async def convert_file_to_speech(
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
-
+# --- CHANGED: REMOVED API KEY DEPENDENCY TO ALLOW BROWSER ACCESS ---
 @app.get("/audio/{filename}")
-def download_audio(filename: str, api_key: str = Depends(verify_api_key)):
+def download_audio(filename: str):
     path = os.path.join(OUTPUT_DIR, filename)
 
     if not os.path.exists(path):
