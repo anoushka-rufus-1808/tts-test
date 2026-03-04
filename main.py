@@ -2,7 +2,7 @@
 Text-to-Speech API with Translation
 FIXED VERSION - Removed authentication from the /audio/ endpoint to allow browser playback
 """
-
+import time
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Header, Form
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -152,9 +152,17 @@ def generate_audio_filename(text: str, custom_name: Optional[str] = None) -> str
 def text_to_speech(text: str, output_path: str, target_language: str):
     if not text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
-
-    tts = gTTS(text=text, lang=target_language, slow=False)
-    tts.save(output_path)
+    
+    # Adding a small 1-second 'breather' before calling Google
+    time.sleep(1) 
+    
+    try:
+        tts = gTTS(text=text, lang=target_language, slow=False)
+        tts.save(output_path)
+    except Exception as e:
+        # If gTTS fails, we want to know why in the logs
+        print(f"gTTS Error: {str(e)}")
+        raise e
 
 # ================== ENDPOINTS ==================
 
